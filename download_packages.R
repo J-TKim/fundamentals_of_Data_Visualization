@@ -10,6 +10,7 @@ devtools::install_github("wilkelab/ungeviz")
 devtools::install_github("clauswilke/ggtextures")
 devtools::install_github("thomasp85/transformr")
 devtools::install_github("hrbrmstr/statebins")
+install.packages('rworldmap',dependencies=TRUE) 
 
 # CRAN에 등재된 패키지 설치
 install.packages(c(
