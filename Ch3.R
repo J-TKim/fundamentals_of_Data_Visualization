@@ -191,4 +191,387 @@ plotlist =
 
 plot_grid(plotlist[[1]], plotlist[[2]], plotlist[[3]], stamp_wrong(plotlist[[4]]), ncol = 1)
 
-# ==============
+# Texas county with log ==============
+set.seed(3878)
+US_census %>% filter(state == "Texas") %>%
+  select(name, pop2010) %>% 
+  extract(name, "county", regex = "(.+) County") %>% 
+  mutate(popratio = pop2010/median(pop2010)) %>% 
+  arrange(desc(popratio)) %>% 
+  mutate(index = 1:n(),
+         label = ifelse(index <= 3 | index > n()-3 | runif(n()) < .04, county, ""),
+         label_large = ifelse(index <= 6, county, "")) -> tx_counties
+
+ggplot(tx_counties, aes(x = index, y = popratio)) + 
+  geom_hline(yintercept = 1, linetype = 2, color = "grey40") +
+  geom_point(size=0.5, color="#0072B2") +
+  geom_text_repel(aes(label = label), point.padding = .4, color = "black",
+                  min.segment.length = 0, family = dviz_font_family) +
+  scale_y_log10(breaks = c(.01, .1, 1, 10, 100),
+                name = "population number / median",
+                labels = label_log10) +
+  scale_x_continuous(limits = c(.5, nrow(tx_counties) + .5), expand = c(0, 0),
+                     breaks = NULL, #c(1, 50*(1:5)),
+                     name = "Texas counties, from most to least populous") +
+  theme_dviz_hgrid() +
+  theme(axis.line = element_blank(),
+        plot.margin = margin(3, 7, 3, 1.5))
+
+# Texas county =========================
+counties_lin = ggplot(tx_counties, aes(x = index, y = popratio)) +
+  geom_point(size = 0.5, color = "#0072B2") +
+  geom_text_repel(aes(label = label_large), point.padding = .4, color = "black",
+                  min.segment.length = 0, family = dviz_font_family) +
+  scale_y_continuous(name = 'population number / median') +
+  scale_x_continuous(limits = c(.5, nrow(tx_counties) + .5), expand = c(0, 0),
+                     breaks = NULL, #c(1, 50*(1:5)),
+                     name = "Texas counties, from most to least populous") +
+  theme_dviz_grid() +
+  theme(axis.line = element_blank(),
+        plot.margin = margin(3, 7, 3, 1.5))
+
+stamp_bad(counties_lin)
+
+# sqrt scale =================================
+df = data.frame(x = c(0, 1, 4, 9, 16, 25, 36, 49))
+
+xaxis_lin = ggplot(df, aes(x, y = 1)) + 
+  geom_point(size = 3, color = "#0072B2") + 
+  scale_y_continuous(limits = c(0.8, 1.2), expand = c(0, 0), breaks = 1) +
+  theme_dviz_grid(14, rel_large = 1) +
+  theme(axis.ticks.length = grid::unit(0, "pt"),
+        axis.text.y = element_blank(),
+        axis.title.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        plot.title = element_text(face = "plain"),
+        plot.margin = margin(3, 14, 3, 1.5))
+
+xaxis_sqrt = ggplot(df, aes(sqrt(x), y = 1)) + 
+  geom_point(size = 3, color = "#0072B2") + 
+  scale_y_continuous(limits = c(0.8, 1.2), expand = c(0, 0), breaks = 1) +
+  theme_dviz_grid(14, rel_large = 1) +
+  theme(axis.ticks.length = grid::unit(0, "pt"),
+        axis.text.y = element_blank(),
+        axis.title.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        plot.title = element_text(face = "plain"),
+        plot.margin = margin(3, 14, 3, 1.5))
+
+plotlist =
+  align_plots(xaxis_lin + scale_x_continuous(limits = c(0, 50)) + 
+                ggtitle("original data, linear scale"),
+              xaxis_sqrt + scale_x_continuous(limits = c(0, 7.07)) +
+                xlab(expression(sqrt(x))) + 
+                ggtitle("square-root-transformed data, linear scale"),
+              xaxis_sqrt + scale_x_continuous(limits = c(0, 7.07), breaks = c(0, 1, sqrt(5), sqrt(10*(1:5))),
+                                              labels = c(0, 1, 5, 10*(1:5)), name = "x") + 
+                expand_limits(expand = c(0, 1)) +
+                ggtitle("original data, square-root scale"),
+              align = 'vh')
+
+plot_grid(plotlist[[1]] ,plotlist[[2]], plotlist[[3]], ncol = 1)
+
+# log scale bar plot ================
+# areas in square miles
+# source: Google, 01/07/2018
+northeast_areas <- read.csv(text = "state_abr,area
+NY,54556
+PA,46055
+ME,35385
+MA,10565
+VT,9616
+NH,9349
+NJ,8723
+CT,5543
+RI,1212")
+
+northeast_areas$state_abr = factor(northeast_areas$state_abr, levels = northeast_areas$state_abr)
+
+areas_base = ggplot(northeast_areas, aes(x = state_abr, y = area)) + 
+  geom_col(fill = "#56B4E9") + 
+  ylab("area (square miles)") +
+  xlab("state") +
+  theme_dviz_hgrid() +
+  theme(plot.margin = margin(3, 1.5, 3, 1.5))
+
+p1 = areas_base + scale_y_sqrt(limits = c(0, 55000), breaks = c(0, 1000, 5000, 10000*(1:5)),
+                               expand = c(0, 0))
+
+p2 = areas_base + scale_y_continuous(limits = c(0, 55000), breaks = 10000*(0:6), expand = c(0, 0))
+
+plot_grid(
+  p2, NULL, p1,
+  labels = c("a", "", "b"), nrow = 1, rel_widths = c(1, .04, 1)
+)
+# polar coordinate system ==================================
+df_points <- data.frame(x = c(1, 3.5, 0),
+                        y = c(3, 4, 0),
+                        label = c("(1, 3)", "(3.5, 4)", "(0, 0)"),
+                        vjust_polar = c(1.6, 1, 1.6),
+                        hjust_polar = c(.5, -.1, 0.5),
+                        vjust_cart = c(1.6, 1.6, -.6),
+                        hjust_cart = c(0.5, 1.1, -.1))
+
+df_segments <- data.frame(x0 = c(0, 1, 2, 3, 0, 0, 0, 0),
+                          x1 = c(0, 1, 2, 3, 4, 4, 4, 4),
+                          y0 = c(0, 0, 0, 0, 1, 2, 3, 4),
+                          y1 = c(4, 4, 4, 4, 1, 2, 3, 4))
+
+p_cart = ggplot(df_points, aes(x, y)) +
+  geom_point(size = 2, color = "#0072B2") + 
+  geom_text(aes(label = label, vjust = vjust_cart, hjust = hjust_cart),
+            size = 12/.pt, family = dviz_font_family) +
+  scale_x_continuous(limits = c(-0.5, 4,5), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(-0.5, 4.5), expand = c(0, 0)) +
+  coord_fixed() +
+  xlab("x axis") +
+  ylab("y axis") +
+  theme_dviz_grid(12) +
+  theme(axis.ticks = element_blank(),
+        axis.ticks.length = grid::unit(0, "pt"),
+        plot.margin = margin(3, 1.5, 3, 1.5))
+
+p_polar = ggplot(df_points, aes(x, y)) +
+  geom_segment(
+    data = df_segments,
+    aes(x = x0, xend = x1, y = y0, yend = y1),
+    size = theme_dviz_grid()$panel.grid$size,
+    color = theme_dviz_grid()$panel.grid$colour,
+    inherit.aes = FALSE
+  ) +
+  geom_point(size = 2, color = "#0072B2") +
+  geom_text(
+    aes(label = label, vjust = vjust_polar, hjust = hjust_polar),
+    size = 12/.pt, family = dviz_font_family
+  ) +
+  scale_x_continuous(limits = c(0, 4)) +
+  scale_y_continuous(limits = c(0, 4)) +
+  coord_polar() +
+  xlab("x values (circular axis") +
+  ylab("y values (radial axis") +
+  theme_dviz_grid(12) +
+  background_grid(major = 'none') +
+  theme(axis.line.x = element_blank(),
+        axis.ticks = element_blank(),
+        plot.margin = margin(3, 1.5, 3, 1.5))
+  
+plot_grid(
+  p_cart, NULL, p_polar,
+  labels = c("a", "", "b"), nrow = 1, rel_widths = c(1, .04, 1)
+)  
+
+# polar coordinate system2 ==============================
+temps_long <- gather(temps_wide, location, temperature, -month, -day, -date) %>%
+  filter(location %in% c("Chicago",
+                         "Death Valley",
+                         "Houston",
+                         "San Diego")) %>%
+  mutate(location = factor(location, levels = c("Death Valley",
+                                                "Houston",
+                                                "San Diego",
+                                                "Chicago")))
+
+ggplot(temps_long, aes(x = date, y = temperature, color = location)) +
+  geom_line(size = 1) +
+  scale_x_date(name = "date", expand = c(0, 0)) +
+  scale_y_continuous(limits = c(0, 105), expand = c(0, 0),
+                     breaks = seq(-30, 90, by = 30),
+                     name = "temperature (°F)") +
+  scale_color_OkabeIto(order = c(1:3, 7), name = NULL) +
+  coord_polar(theta = "x", start = pi, direction = -1) +
+  theme_dviz_grid()
+
+# draw world map ==================================
+library(sf)
+
+world_sf = sf::st_as_sf(rworldmap::getMap(resolution = "low"))
+
+## World in long-lat
+crs_longlat = "+proj=longlat +ellps=WGS84 + datum=WGS84 +no_defs"
+
+p_longlat = ggplot(world_sf) +
+  geom_sf(fill = "#E69F00B0", color = "black", size = 0.5/.pt) +
+  coord_sf(expand = FALSE, crs = crs_longlat) +
+  scale_x_continuous(
+    name = "longitude",
+    breaks = seq(-160, 160, by=20) ,
+    labels = parse(text = c("NA", "NA", "120*degree*W", "NA", "NA", "60*degree*W", "NA", "NA", "0*degree", "NA", "NA",
+                            "60*degree*E", "NA", "NA", "120*degree*E", "NA", "NA"))
+  ) +
+  scale_y_continuous(
+    name = "latitude",
+    breaks = seq(-80, 80, by = 20),
+    labels = parse(text = c("80*degree*S", "NA", "40*degree*S", "NA", "0*degree", "NA", "40*degree*N", "NA",
+                            "80*degree*N"))
+  ) +
+  theme_dviz_grid(12) +
+  theme(
+    panel.background = element_rect(fill = "#56B4E950", color = "grey30", size = 0.5),
+    panel.grid.major = element_line(color = "gray30", size = 0.25),
+    axis.ticks = element_line(color = "gray30", size = 0.5/.pt),
+    plot.margin = margin(5, 10, 1.5, 1.5)
+  )
+
+
+## Interrupted Goode homolosine
+crs_goode = "+proj=igh"
+
+# projection outline in long-lat coordinates
+lats = c(
+  90:-90, # right side down
+  -90:0, 0:-90, # third cut bottom
+  -90:0, 0:-90, # second cut bottom
+  -90:0, 0:-90, # first cut bottom
+  -90:90, # left side up
+  90:0, 0:90, # cut top
+  90 # close
+)
+longs = c(
+  rep(180, 181), # right side down
+  rep(c(80.01, 79.99), each = 91), # third cut bottom
+  rep(c(-19.99, -20.01), each = 91), # second cut bottom
+  rep(c(-99.99, -100.01), each = 91), # first cut bottom
+  rep(-180, 181), # left side up
+  rep(c(-40.01, -39.99), each = 91), # cut top
+  180 # close
+)
+  
+goode_outline = 
+  list(cbind(longs, lats)) %>% 
+  st_polygon() %>% 
+  st_sfc(
+    crs = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+  ) %>% 
+  st_transform(crs = crs_goode)
+
+
+# bounding box in transformed coordinates
+xlim_goode = c(-21945470, 21963330)
+ylim_goode = c(-9538022, 9266738)
+goode_bbox =
+  list(
+    cbind(
+      c(xlim_goode[1], xlim_goode[2], xlim_goode[2], xlim_goode[1], xlim_goode[1]), 
+      c(ylim_goode[1], ylim_goode[1], ylim_goode[2], ylim_goode[2], ylim_goode[1])
+    )
+  ) %>%
+  st_polygon() %>%
+  st_sfc(crs = crs_goode)
+
+# areas outside the earth outline
+goode_without = st_difference(goode_bbox, goode_outline)
+
+p_goode = ggplot(world_sf) +
+  geom_sf(fill = "#E69F00B0", color = "black", size = 0.5/.pt) +
+  geom_sf(data = goode_without, fill = 'white', color = NA) +
+  geom_sf(data = goode_outline, fill = NA, color = "grey30", size = 0.5/.pt) + 
+  scale_x_continuous(
+    name = NULL,
+    breaks = seq(-160, 160, by = 20)
+  ) +
+  scale_y_continuous(
+    name = NULL,
+    breaks = seq(-80, 80, by = 20)
+  ) +
+  coord_sf(xlim = 0.95*xlim_goode, ylim = 0.95*ylim_goode, expand = FALSE, crs = crs_goode, ndiscr = 1000) + 
+  theme_dviz_grid(12, rel_small = 1) +
+  theme(
+    panel.background = element_rect(fill = "#56B4E950", color = "white", size = 1),
+    panel.grid.major = element_line(color = "gray30", size = 0.25),
+    plot.margin = margin(1.5, 1.5, 24, 1.5)
+  )
+
+# Robinson projection
+crs_robin = "+proj=robin +lat_0=0 +lon_0=0 +x0=0 +y0=0"
+
+# projection outline in long-lat coordinates
+lats = c(90:-90, -90:90, 90)
+longs = c(rep(c(180, -180), each = 181), 180)
+
+robin_outline = 
+  list(cbind(longs, lats)) %>% 
+  st_polygon() %>% 
+  st_sfc(
+    crs = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs" 
+  ) %>% 
+  st_transform(crs = crs_robin)
+
+# bounding box in transformed coordinates
+xlim_robin = c(-18494733, 18613795)
+ylim_robin = c(-9473396, 9188587)
+robin_bbox = 
+  list(
+    cbind(
+      c(xlim_robin[1], xlim_robin[2], xlim_robin[2], xlim_robin[1], xlim_robin[1]), 
+      c(ylim_robin[1], ylim_robin[1], ylim_robin[2], ylim_robin[2], ylim_robin[1])
+    )
+  ) %>%
+  st_polygon() %>%
+  st_sfc(crs = crs_robin)
+
+# area outside the earth outline
+robin_without = st_difference(robin_bbox, robin_outline)
+
+p_robin = ggplot(world_sf) +
+  geom_sf(fill = "#E69F00B0", color = "black", size = 0.5/.pt) +
+  geom_sf(data = robin_without, fill = "white", color = NA) +
+  geom_sf(data = robin_outline, fill = NA, color = "grey30", size = 0.5/.pt) +
+  scale_x_continuous(
+    name = NULL,
+    breaks = seq(-160, 160, by = 20)
+  ) +
+  scale_y_continuous(
+    name = NULL,
+    breaks = seq(-80, 80, by = 20)
+  ) + 
+  coord_sf(xlim = 0.95*xlim_robin, ylim = 0.95*ylim_robin, expand = FALSE, crs = crs_robin, ndiscr = 1000) + 
+  theme_dviz_grid(12, rel_small = 1) +
+  theme(
+    panel.background = element_rect(fill = "#56B4E950", color = "white", size = 1),
+    panel.grid.major = element_line(color = "gray30", size = 0.25),
+    plot.margin = margin(6, 1.5, 1.5, 1.5)
+  )
+
+
+## Winkel tripel
+# The winkel triepl projection needs to be done manually, it is not supported by sf.
+crs_wintri = "+proj=wintri +datum=WGS84 +no_defs +over"
+
+# world
+world_wintri = lwgeom::st_transform_proj(world_sf, crs = crs_wintri)
+
+# graticule
+grat_wintri = sf::st_graticule(lat = c(-89.9, seq(-80, 80, 20), 89.9))
+grat_wintri = lwgeom::st_transform_proj(grat_wintri, crs = crs_wintri)
+
+# earth outline
+lats = c(90:-90, -90:90, 90)
+longs = c(rep(c(180, -180), each = 181), 180)
+wintri_outline = 
+  list(cbind(longs, lats)) %>%
+  st_polygon() %>%
+  st_sfc(
+    crs = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+  ) %>% 
+  lwgeom::st_transform_proj(crs = crs_wintri)
+
+p_wintri = ggplot() +
+  geom_sf(data = wintri_outline, fill = "#56B4E950", color = NA) +
+  geom_sf(data = grat_wintri, color = "gray30", size = 0.25/.pt) +
+  geom_sf(data = world_wintri, fill = "#E69F00B0", color = "black", size = 0.5/.pt) +
+  geom_sf(data = wintri_outline, fill = NA, color = "grey30", size = 0.5/.pt) +
+  coord_sf(datum = NA, expand = FALSE) +
+  theme_dviz_grid(12, rel_small = 1) +
+  theme(
+    plot.margin = margin(6, 1.5, 3, 1.5)
+  )
+
+p = plot_grid(
+  p_longlat, p_goode, p_robin, p_wintri,
+  labels = c(
+    "Cartesian longitude and latitude", "Interrupted Goode homolosine", 
+    "Robinson", "Winkel tripel"
+  )
+)
+
+p + theme(plot.margin = margin(1.5, 0, 0, 0))
